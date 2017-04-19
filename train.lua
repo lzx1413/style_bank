@@ -1,5 +1,4 @@
 require 'torch'
-require 'loadcaffe'
 require 'optim'
 require 'image'
 
@@ -43,7 +42,7 @@ cmd:option('-style_image', 'images/styles/candy.jpg')
 cmd:option('-style_image_size', 256)
 cmd:option('-style_weights', '5.0')
 cmd:option('-style_layers', '4,9,16,23')
-cmd:option('-style_target_type', 'gram|mean')
+cmd:option('-style_target_type', 'gram', 'gram|mean')
 
 -- Upsampling options
 cmd:option('-upsample_factor', 4)
@@ -85,7 +84,7 @@ cmd:option('-backend', 'cuda', 'cuda|opencl')
   preprocess = preprocess[opt.preprocessing]
 
   -- Figure out the backend
-  local dtype, use_cudnn = utils.setup_gpu(opt.gpu, opt.backend, opt.use_cudnn)
+  local dtype, use_cudnn = utils.setup_gpu(opt.gpu, opt.backend, opt.use_cudnn == 1)
 
   -- Build the model
   local model = nil
@@ -180,7 +179,7 @@ cmd:option('-backend', 'cuda', 'cuda|opencl')
     -- Compute pixel loss and gradient
     local pixel_loss = 0
       if pixel_crit then
-      local pixel_loss = pixel_crit:forward(out, y)
+      pixel_loss = pixel_crit:forward(out, y)
       pixel_loss = pixel_loss * opt.pixel_loss_weight
       local grad_out_pix = pixel_crit:backward(out, y)
       if grad_out then

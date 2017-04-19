@@ -4,7 +4,12 @@ require 'cutorch'
 require 'cunn'
 require 'cudnn'
 require 'loadcaffe'
-local utils = require 'neuralstyle2.utils'
+
+require 'fast_neural_style.ShaveImage'
+require 'fast_neural_style.TotalVariation'
+require 'fast_neural_style.InstanceNormalization'
+
+local utils = require 'fast_neural_style.utils'
 
 --[[
 Convert model checkpoints to CPU-only .t7 checkpoints.
@@ -32,6 +37,9 @@ local function main()
   if opt.input_t7 ~= '' then
     print('Reading network from ' .. opt.input_t7)
     net = torch.load(opt.input_t7)
+    if net.model then
+      net = net.model
+    end
   elseif opt.input_prototxt ~= '' then
     if opt.input_caffemodel == '' then
       error('Must pass -input_caffemodel with -input_prototxt')
