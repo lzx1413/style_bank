@@ -33,7 +33,8 @@ end
 function InstanceNormalization:updateOutput(input)
   local N, C = input:size(1), input:size(2)
   local H, W = input:size(3), input:size(4)
-  assert(C == self.nOutput)
+  if assert(C == self.nOutput) then
+  end
 
   if N ~= self.prev_N or (self.bn and self:type() ~= self.bn:type()) then
     self.bn = nn.SpatialBatchNormalization(N * C, self.eps)

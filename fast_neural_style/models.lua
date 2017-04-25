@@ -10,8 +10,7 @@ local M = {}
 local function build_conv_block(dim, padding_type, use_instance_norm)
   local conv_block = nn.Sequential()
   local p = 0
-  if padding_type == 'reflect' then
-    conv_block:add(nn.SpatialReflectionPadding(1, 1, 1, 1))
+  if padding_type == 'reflect' then conv_block:add(nn.SpatialReflectionPadding(1, 1, 1, 1))
   elseif padding_type == 'replicate' then
     conv_block:add(nn.SpatialReplicationPadding(1, 1, 1, 1))
   elseif padding_type == 'zero' then
@@ -54,11 +53,18 @@ local function build_res_block(dim, padding_type, use_instance_norm)
 end
 
 
-function M.build_model(opt)
-  local arch = opt.arch:split(',')
-  local prev_dim = 3
+function M.build_model(opt,net_type,input_dim)
+  local arch = nil
+  if net_type == 'en' then
+     arch = opt.encoder_arch:split(',')
+  elseif net_type == 'de' then
+      arch = opt.decoder_arch:split(',')
+  else
+      arch = opt.arch:split(',')
+  end
+  print(arch)
+  local prev_dim = input_dim
   local model = nn.Sequential()
-  
   for i, v in ipairs(arch) do
     local first_char = string.sub(v, 1, 1)
     local layer, next_dim
@@ -115,6 +121,7 @@ function M.build_model(opt)
       needs_bn = false
       needs_relu = false
     end
+    print(v)
     model:add(layer)
     if i == #arch then
       needs_relu = false
@@ -134,9 +141,11 @@ function M.build_model(opt)
     prev_dim = next_dim
   end
 
-  model:add(nn.Tanh())
-  model:add(nn.MulConstant(opt.tanh_constant))
-  model:add(nn.TotalVariation(opt.tv_strength))
+  if net_type == 'de' then 
+    model:add(nn.Tanh())
+    model:add(nn.MulConstant(opt.tanh_constant))
+    model:add(nn.TotalVariation(opt.tv_strength))
+  end
 
   return model
 end
