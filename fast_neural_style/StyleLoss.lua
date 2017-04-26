@@ -11,7 +11,9 @@ function StyleLoss:__init(strength, loss_type, agg_type)
   self.agg_type = agg_type or 'gram'
   self.strength = strength or 1.0
   self.loss = 0
+  self.targets = {}
   self.target = torch.Tensor()
+  self.style_index = 1
 
   if self.agg_type == 'gram' then
     self.agg = nn.GramMatrix()
@@ -23,7 +25,6 @@ function StyleLoss:__init(strength, loss_type, agg_type)
     error('Unsupported aggregation type ' .. agg_type)
   end
   self.agg_out = nil
-  
   self.mode = 'none'
   loss_type = loss_type or 'L2'
   if loss_type == 'L2' then
@@ -39,10 +40,16 @@ end
 function StyleLoss:updateOutput(input)
   self.agg_out = self.agg:forward(input)
   if self.mode == 'capture' then
-    self.target:resizeAs(self.agg_out):copy(self.agg_out)
+    --self.target:resizeAs(self.agg_out):copy(self.agg_out)
+    table.insert(self.targets,self.agg_out:clone())
+    print(#self.targets)
   elseif self.mode == 'loss' then
-    local target = self.target
-    if self.agg_out:size(1) > 1 and self.target:size(1) == 1 then
+    --local target = self.target
+    if self.style_index > #self.targets then 
+        print('style index out of style num')
+    end
+    local target = self.targets[self.style_index]
+    if self.agg_out:size(1) > 1 and target:size(1) == 1 then
       -- Handle minibatch inputs
       target = target:expandAs(self.agg_out)
     end
@@ -65,7 +72,6 @@ function StyleLoss:updateGradInput(input, gradOutput)
   end
   return self.gradInput
 end
-
 
 function StyleLoss:setMode(mode)
   if mode ~= 'capture' and mode ~= 'loss' and mode ~= 'none' then

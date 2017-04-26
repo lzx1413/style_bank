@@ -77,6 +77,11 @@ function crit:setStyleTarget(target)
   end
   self.net:forward(target)
 end
+function crit:setStyleIndex(index)
+  for i, style_loss_layer in ipairs(self.style_loss_layers) do
+    style_loss_layer.style_index = index
+  end
+end
 
 
 --[[

@@ -20,7 +20,8 @@ local cmd = torch.CmdLine()
 cmd:option('-model', 'models/instance_norm/candy.t7')
 cmd:option('-image_size', 768)
 cmd:option('-median_filter', 3)
-cmd:option('-timing', 0)
+cmd:option('-timing', 1)
+cmd:option('-ti',1)--type index
 
 -- Input / output options
 cmd:option('-input_image', 'images/content/chicago.jpg')
@@ -51,6 +52,7 @@ local function main()
     return
   end
   local model = checkpoint.model
+  model.modules[3].index = 2
   model:evaluate()
   model:type(dtype)
   if use_cudnn then
@@ -60,6 +62,7 @@ local function main()
       cudnn.fastest = true
     end
   end
+  print(model)
 
   local preprocess_method = checkpoint.opt.preprocessing or 'vgg'
   local preprocess = preprocess[preprocess_method]

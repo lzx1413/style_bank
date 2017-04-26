@@ -18,8 +18,8 @@ Train a feedforward style transfer model
 
 -- Generic options
 cmd:option('-arch', 'c9s1-32,d64,d128,R128,R128,R128,R128,R128,u64,u32,c9s1-3')
-cmd:option('-encoder_arch','c9s1-32,d64,d128')
-cmd:option('-decoder_arch','U2,c3s1-64,U2,c3s1-32,c9s1-3',128)
+cmd:option('-encoder_arch','c9s1-16,d32,d64')
+cmd:option('-decoder_arch','U2,c3s1-32,U2,c3s1-16,c9s1-3')
 cmd:option('-use_instance_norm', 1)
 cmd:option('-task', 'style', 'style|upsample')
 cmd:option('-h5_file', '/data/celeba_norm.h5')
@@ -45,12 +45,14 @@ cmd:option('-style_image_size', 256)
 cmd:option('-style_weights', '5.0')
 cmd:option('-style_layers', '4,9,16,23')
 cmd:option('-style_target_type', 'gram', 'gram|mean')
+cmd:option('-style_dir','images/styles/')
+cmd:option('-style_num',11)
 
 -- Upsampling options
 cmd:option('-upsample_factor', 4)
 
 -- Optimization
-cmd:option('-num_iterations', 40000)
+cmd:option('-num_iterations', 200000)
 cmd:option('-max_train', -1)
 cmd:option('-batch_size', 4)
 cmd:option('-learning_rate', 1e-2)
@@ -59,7 +61,7 @@ cmd:option('-lr_decay_factor', 0.5)
 cmd:option('-weight_decay', 0)
 
 -- Checkpointing
-cmd:option('-checkpoint_name', 'models/0425/candy_2')
+cmd:option('-checkpoint_name', 'models/0426/sb_11')
 cmd:option('-checkpoint_every', 1000)
 cmd:option('-num_val_batches', 10)
 
@@ -102,21 +104,16 @@ cmd:option('-cross_iter',3)
     print('Initializing model from scratch')
     --model = models.build_model(opt):type(dtype)
     encode_model = models.build_model(opt,'en',3)
-    decode_model = models.build_model(opt,'de',128)
+    decode_model = models.build_model(opt,'de',64)
     print('encode mdoel')
     print(encode_model)
     print('decode model')
     print(decode_model)
-    local idenfy_layer = nn.Sequential()
-    idenfy_layer:add(nn.Identity()):type(dtype)
-    local style_layer = nn.Sequential()
-    style_layer:add(nn.SpatialConvolution(128,128,3,3,1,1,1,1,1)):type(dtype)
-    if use_cudnn then
-        cudnn.convert(style_layer, cudnn)
-    end
     model = nn.Sequential()
     style_branchs = nn.ConcatTable()
-    style_branchs:add(nn.SpatialConvolution(128,128,3,3,1,1,1,1,1))
+    for i = 1,opt.style_num do
+        style_branchs:add(nn.SpatialConvolution(64,64,3,3,1,1,1,1,1))
+    end
     style_branchs:add(nn.Identity())
     model:add(encode_model)
     model:add(style_branchs)
@@ -132,8 +129,7 @@ cmd:option('-cross_iter',3)
   if opt.pixel_loss_weight > 0 then
     if opt.pixel_loss_type == 'L2' then
       pixel_crit = nn.MSECriterion():type(dtype)
-    elseif opt.pixel_loss_type == 'L1' then
-      pixel_crit = nn.AbsCriterion():type(dtype)
+    elseif opt.pixel_loss_type == 'L1' then pixel_crit = nn.AbsCriterion():type(dtype)
     elseif opt.pixel_loss_type == 'SmoothL1' then
       pixel_crit = nn.SmoothL1Criterion():type(dtype)
     end
@@ -152,14 +148,28 @@ cmd:option('-cross_iter',3)
       agg_type = opt.style_target_type,
     }
     percep_crit = nn.PerceptualCriterion(crit_args):type(dtype)
-
-    if opt.task == 'style' then
-      -- Load the style image and set it
+  local function setStyleTarget(image_path)
       local style_image = image.load(opt.style_image, 3, 'float')
       style_image = image.scale(style_image, opt.style_image_size)
       local H, W = style_image:size(2), style_image:size(3)
       style_image = preprocess.preprocess(style_image:view(1, 3, H, W))
       percep_crit:setStyleTarget(style_image:type(dtype))
+  end
+
+
+    if opt.task == 'style' then
+      -- Load the style image and set it
+      if opt.style_dir ~= nil then 
+         for fn in paths.files(opt.style_dir) do 
+             if utils.is_image_file(fn) then 
+                 local style_path = paths.concat(opt.style_dir,fn)
+                 setStyleTarget(style_path)
+                 print('set style target',style_path)
+            end
+        end
+      else
+          setStyleTarget(opt.style_image)
+      end
     end
   end
 
@@ -255,11 +265,14 @@ cmd:option('-cross_iter',3)
   local style_weight = opt.style_weight
   for t = 1, opt.num_iterations do
     if t%opt.cross_iter == 0 then
-        model.modules[3].index = 2
+        model.modules[3].index = opt.style_num+1
         percep_crit:setStyleWeight(0)
     else 
-        model.modules[3].index = 1
+        local style_index = torch.ceil(torch.abs(torch.rand(1))*opt.style_num)[1]
+        print('train style index',style_index)
+        model.modules[3].index = style_index
         percep_crit:setStyleWeight(5)
+        percep_crit:setStyleIndex(style_index)
     end
 
     local epoch = t / loader.num_minibatches['train']
