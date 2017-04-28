@@ -15,6 +15,7 @@ directory of images.
 --]]
 
 local cmd = torch.CmdLine()
+local style_num = 0
 
 -- Model options
 cmd:option('-model', 'models/instance_norm/candy.t7')
@@ -52,7 +53,9 @@ local function main()
     return
   end
   local model = checkpoint.model
-  model.modules[3].index = 5
+  style_num = #model.modules[2].modules
+  print('style num is ',style_num)
+  model.modules[3].index = 2
   model:evaluate()
   model:type(dtype)
   if use_cudnn then
@@ -110,9 +113,13 @@ local function main()
     end
     for fn in paths.files(opt.input_dir) do
       if utils.is_image_file(fn) then
-        local in_path = paths.concat(opt.input_dir, fn)
-        local out_path = paths.concat(opt.output_dir, fn)
-        run_image(in_path, out_path)
+        for i = 1,style_num do
+            model.modules[3].index = i
+            local in_path = paths.concat(opt.input_dir, fn)
+            ofn = tostring(i) .. '_' .. fn
+            local out_path = paths.concat(opt.output_dir, ofn)
+            run_image(in_path, out_path)
+        end
       end
     end
   elseif opt.input_image ~= '' then

@@ -42,7 +42,7 @@ cmd:option('-loss_network', 'models/vgg16.t7')
 -- Options for style reconstruction loss
 cmd:option('-style_image', 'images/styles/candy.jpg')
 cmd:option('-style_image_size', 256)
-cmd:option('-style_weights', '5.0')
+cmd:option('-style_weights', '10.0')
 cmd:option('-style_layers', '4,9,16,23')
 cmd:option('-style_target_type', 'gram', 'gram|mean')
 cmd:option('-style_dir','images/styles/')
@@ -61,7 +61,7 @@ cmd:option('-lr_decay_factor', 0.5)
 cmd:option('-weight_decay', 0)
 
 -- Checkpointing
-cmd:option('-checkpoint_name', 'models/0426/sb_11')
+cmd:option('-checkpoint_name', 'models/0428/sb_11_w10')
 cmd:option('-checkpoint_every', 1000)
 cmd:option('-num_val_batches', 10)
 
@@ -149,7 +149,7 @@ cmd:option('-cross_iter',3)
     }
     percep_crit = nn.PerceptualCriterion(crit_args):type(dtype)
   local function setStyleTarget(image_path)
-      local style_image = image.load(opt.style_image, 3, 'float')
+      local style_image = image.load(image_path, 3, 'float')
       style_image = image.scale(style_image, opt.style_image_size)
       local H, W = style_image:size(2), style_image:size(3)
       style_image = preprocess.preprocess(style_image:view(1, 3, H, W))
